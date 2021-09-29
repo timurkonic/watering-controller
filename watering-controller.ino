@@ -19,16 +19,30 @@ int tcpPort = 80;
 EthernetServer server = EthernetServer(tcpPort);
 
 // Valve count
-int valveCount = 4;
-
+int valveCount = 1;
+int valvePins[] = {2, 3};
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-  Serial.println("Watering controller");
+  setupPins();
+  setupSerial();
+  setupEthernet();
+}
 
+void setupSerial() {
+  Serial.begin(9600);
+  Serial.println("Watering controller");
+}
+
+void setupPins() {
+  for (int i=0; i < valveCount; i++) {
+    pinMode(valvePins[i * 2], OUTPUT);
+    pinMode(valvePins[i * 2 + 1], OUTPUT);
+    digitalWrite(valvePins[i * 2], HIGH);
+    digitalWrite(valvePins[i * 2 + 1], HIGH);
+  }
+}
+
+void setupEthernet() {
   Ethernet.begin(mac, ip, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
     Serial.println("Ethernet shield was not found");
@@ -45,6 +59,41 @@ void setup() {
   Serial.print(Ethernet.localIP());
   Serial.print(":");
   Serial.println(tcpPort);
+
+}
+
+void loop() {
+  EthernetClient client = server.available();
+  if (client) {
+    String requestLine = "";
+    String requestUri = "";
+    boolean requestLineIsBlank = true;
+    while (client.connected()) {
+      if (client.available()) {
+        char requestChar = client.read();
+        if (requestChar == '\n' && requestLineIsBlank) {
+          sendResponse(client, requestUri);
+          break;
+        }
+        if (requestChar == '\n') {
+          requestLineIsBlank = true;
+          String parseResult = parseRequest(requestLine);
+          if (parseResult.length() > 0) {
+            requestUri = parseResult;
+          }
+          requestLine = "";
+        }
+        else {
+          if (requestChar != '\r') {
+            requestLineIsBlank = false;
+            if (requestLine.length() < 100) {
+              requestLine += requestChar;
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 String parseRequest(String line) {
@@ -87,42 +136,19 @@ boolean runUri(String uri) {
       Serial.print(valveNumber);
       Serial.print(" to ");
       Serial.println(valveStatus);
+      setValveStatus(valveNumber, valveStatus);
       return true;
     }
   }
   return false;
 }
 
-void loop() {
-  EthernetClient client = server.available();
-  if (client) {
-    String requestLine = "";
-    String requestUri = "";
-    boolean requestLineIsBlank = true;
-    while (client.connected()) {
-      if (client.available()) {
-        char requestChar = client.read();
-        if (requestChar == '\n' && requestLineIsBlank) {
-          sendResponse(client, requestUri);
-          break;
-        }
-        if (requestChar == '\n') {
-          requestLineIsBlank = true;
-          String parseResult = parseRequest(requestLine);
-          if (parseResult.length() > 0) {
-            requestUri = parseResult;
-          }
-          requestLine = "";
-        }
-        else {
-          if (requestChar != '\r') {
-            requestLineIsBlank = false;
-            if (requestLine.length() < 100) {
-              requestLine += requestChar;
-            }
-          }
-        }
-      }
-    }
+void setValveStatus(int valveNumber, int valveStatus) {
+  for (int i=0; i < valveCount; i++) {
+    digitalWrite(valvePins[i * 2], HIGH);
+    digitalWrite(valvePins[i * 2 + 1], HIGH);
   }
+  digitalWrite(valvePins[valveNumber * 2 + valveStatus], LOW);
+  delay(3000);
+  digitalWrite(valvePins[valveNumber * 2 + valveStatus], HIGH);
 }
