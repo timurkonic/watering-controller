@@ -18,6 +18,10 @@ int tcpPort = 80;
 
 EthernetServer server = EthernetServer(tcpPort);
 
+// Valve count
+int valveCount = 4;
+
+
 void setup() {
   Serial.begin(9600);
   while (!Serial) {
@@ -73,7 +77,20 @@ void sendResponse(EthernetClient client, String uri) {
 boolean runUri(String uri) {
   Serial.print("URI: ");
   Serial.println(uri);
-  return uri.startsWith("/cmd");
+  if (uri.startsWith("/cmd=") && uri.length() >= 7) {
+    char cValveNumber = uri.charAt(5);
+    char cValveStatus = uri.charAt(6);
+    int valveNumber = cValveNumber - '0';
+    int valveStatus = cValveStatus - '0';
+    if (valveNumber >= 0 && valveNumber < valveCount && valveStatus >= 0 && valveStatus <= 1) {
+      Serial.print("Set valve ");
+      Serial.print(valveNumber);
+      Serial.print(" to ");
+      Serial.println(valveStatus);
+      return true;
+    }
+  }
+  return false;
 }
 
 void loop() {
@@ -100,7 +117,9 @@ void loop() {
         else {
           if (requestChar != '\r') {
             requestLineIsBlank = false;
-            requestLine += requestChar;
+            if (requestLine.length() < 100) {
+              requestLine += requestChar;
+            }
           }
         }
       }
