@@ -43,46 +43,58 @@ void setup() {
   Serial.println(tcpPort);
 }
 
-void parseURI(String uri) {
-  Serial.print("GET ");
-  Serial.println(uri);
-}
-
-void parseRequest(String line) {
+String parseRequest(String line) {
   if (line.startsWith("GET ")) {
     int spaceIndex = line.indexOf(' ', 4);
     if (spaceIndex > 0) {
-      String uri = line.substring(4, spaceIndex);
-      parseURI(uri);
+      return line.substring(4, spaceIndex);
     }
   }
+  return "";
 }
 
-void sendResponse(EthernetClient client) {
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: text/html");
-  client.println("Connection: close");
-  client.println();
-  client.println("OK");
+void sendResponse(EthernetClient client, String uri) {
+  if (runUri(uri)) {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connection: close");
+    client.println();
+    client.println("OK");
+  }
+  else {
+    client.println("HTTP/1.1 404 Not found");
+    client.println();
+    client.println("Not found");
+  }
   delay(1);
   client.stop();
 }
 
+boolean runUri(String uri) {
+  Serial.print("URI: ");
+  Serial.println(uri);
+  return uri.startsWith("/cmd");
+}
+
 void loop() {
   EthernetClient client = server.available();
-  String requestLine = "";
   if (client) {
+    String requestLine = "";
+    String requestUri = "";
     boolean requestLineIsBlank = true;
     while (client.connected()) {
       if (client.available()) {
         char requestChar = client.read();
         if (requestChar == '\n' && requestLineIsBlank) {
-          sendResponse(client);
+          sendResponse(client, requestUri);
           break;
         }
         if (requestChar == '\n') {
           requestLineIsBlank = true;
-          parseRequest(requestLine);
+          String parseResult = parseRequest(requestLine);
+          if (parseResult.length() > 0) {
+            requestUri = parseResult;
+          }
           requestLine = "";
         }
         else {
