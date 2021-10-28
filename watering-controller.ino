@@ -1,9 +1,10 @@
 // Watering controller on Arduino Duemilanove
-// v.0.1
+// v.0.2
 // Timur Konic <timur.konic@gmail.com>
 
 #include <SPI.h>
 #include <Ethernet.h>
+#include <LiquidCrystalRus.h>
 
 // MAC address of the NIC ethernet controller
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
@@ -18,19 +19,17 @@ int tcpPort = 80;
 
 EthernetServer server = EthernetServer(tcpPort);
 
+// LCD
+LiquidCrystalRus lcd(22, 23, 24, 25, 26, 27);
+
 // Valve count
 int valveCount = 1;
-int valvePins[] = {2, 3};
+int valvePins[] = {42, 43};
 
 void setup() {
   setupPins();
-  setupSerial();
+  setupLCD();
   setupEthernet();
-}
-
-void setupSerial() {
-  Serial.begin(9600);
-  Serial.println("Watering controller");
 }
 
 void setupPins() {
@@ -42,23 +41,36 @@ void setupPins() {
   }
 }
 
+void setupLCD() {
+  lcd.begin(16, 2);
+  lcd.clear();
+  lcd.print("  ЗАГРУЗКА...");
+}
+
 void setupEthernet() {
   Ethernet.begin(mac, ip, gateway, subnet);
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-    Serial.println("Ethernet shield was not found");
+    lcd.clear();
+    lcd.print("SHIELD NOT FOUND");
     while (true) {
       delay(1);
     }
   }
   if (Ethernet.linkStatus() == LinkOFF) {
-    Serial.println("Ethernet cable is not connected.");
+    lcd.clear();
+    lcd.print("CABLE NOT CONNECTED");
+    while (true) {
+      delay(1);
+    }
   }
 
   server.begin();
-  Serial.print("Controller is at ");
-  Serial.print(Ethernet.localIP());
-  Serial.print(":");
-  Serial.println(tcpPort);
+  lcd.clear();
+  lcd.print("КОНТРОЛЛЕР ОК");
+  lcd.setCursor(0, 1);
+  lcd.print(Ethernet.localIP());
+  lcd.print(":");
+  lcd.print(tcpPort);
 
 }
 
@@ -124,23 +136,25 @@ void sendResponse(EthernetClient client, String uri) {
 }
 
 boolean runUri(String uri) {
-  Serial.print("URI: ");
-  Serial.println(uri);
   if (uri.startsWith("/cmd=") && uri.length() >= 7) {
     char cValveNumber = uri.charAt(5);
     char cValveStatus = uri.charAt(6);
     int valveNumber = cValveNumber - '0';
     int valveStatus = cValveStatus - '0';
     if (valveNumber >= 0 && valveNumber < valveCount && valveStatus >= 0 && valveStatus <= 1) {
-      Serial.print("Set valve ");
-      Serial.print(valveNumber);
-      Serial.print(" to ");
-      Serial.println(valveStatus);
+      showValveStatus(valveNumber, valveStatus);
       setValveStatus(valveNumber, valveStatus);
       return true;
     }
   }
   return false;
+}
+
+void showValveStatus(int valveNumber, int valveStatus) {
+  lcd.clear();
+  lcd.print("НАСОС ");
+  lcd.print(valveNumber);
+  lcd.print(valveStatus == 0 ? " ЗАКРЫТ" : " ОТКРЫТ");
 }
 
 void setValveStatus(int valveNumber, int valveStatus) {
