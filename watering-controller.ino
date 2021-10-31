@@ -23,8 +23,8 @@ EthernetServer server = EthernetServer(tcpPort);
 LiquidCrystalRus lcd(22, 23, 24, 25, 26, 27);
 
 // Valve count
-int valveCount = 1;
-int valvePins[] = {42, 43};
+int valveCount = 4;
+int valvePins[] = {34, 36, 38, 40, 42, 44, 46, 48};
 
 void setup() {
   setupPins();
@@ -162,7 +162,11 @@ void setValveStatus(int valveNumber, int valveStatus) {
     digitalWrite(valvePins[i * 2], HIGH);
     digitalWrite(valvePins[i * 2 + 1], HIGH);
   }
-  digitalWrite(valvePins[valveNumber * 2 + valveStatus], LOW);
+  if (valveStatus == 0) {
+    digitalWrite(valvePins[valveNumber * 2], LOW);
+  }
+  digitalWrite(valvePins[valveNumber * 2 + 1], LOW);
   delay(3000);
-  digitalWrite(valvePins[valveNumber * 2 + valveStatus], HIGH);
+  digitalWrite(valvePins[valveNumber * 2], HIGH);
+  digitalWrite(valvePins[valveNumber * 2 + 1], HIGH);
 }
