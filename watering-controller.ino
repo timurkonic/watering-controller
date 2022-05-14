@@ -1,5 +1,5 @@
 // Watering controller on Arduino Duemilanove
-// v.0.21
+// v.0.3
 // Timur Konic <timur.konic@gmail.com>
 
 #include <SPI.h>
@@ -25,6 +25,9 @@ LiquidCrystalRus lcd(22, 23, 24, 25, 26, 27);
 // Valve count
 int valveCount = 4;
 int valvePins[] = {46, 48, 42, 44, 38, 40, 34, 36};
+int valveStatuses[] = {0, 0, 0, 0};
+int valveMoves[] = {0, 0, 0, 0};
+unsigned long valveMillis[] = {-1, -1, -1, -1};
 
 void setup() {
   setupPins();
@@ -104,8 +107,14 @@ void loop() {
           }
         }
       }
+      delay(1);
     }
   }
+  delay(1);
+}
+
+void yield() {
+  checkTimeouts();
 }
 
 String parseRequest(String line) {
@@ -139,34 +148,50 @@ boolean runUri(String uri) {
   if (uri.startsWith("/cmd=") && uri.length() >= 7) {
     char cValveNumber = uri.charAt(5);
     char cValveStatus = uri.charAt(6);
-    int valveNumber = cValveNumber - '0';
+    int valveNumber = cValveNumber - '1';
     int valveStatus = cValveStatus - '0';
-    if (valveNumber >= 1 && valveNumber <= valveCount && valveStatus >= 0 && valveStatus <= 1) {
-      showValveStatus(valveNumber, valveStatus);
-      setValveStatus(valveNumber, valveStatus);
+    if (valveNumber >= 0 && valveNumber < valveCount && valveStatus >= 0 && valveStatus <= 1) {
+      valveStatuses[valveNumber] = valveStatus;
+      valveMoves[valveNumber] = 1;
+      valveMillis[valveNumber] = millis();
+      setValvePins();
       return true;
     }
   }
   return false;
 }
 
+void checkTimeouts() {
+  for (int i=0; i < valveCount; i++) {
+    if (valveMoves[i] != 0 && (valveMillis[i] > millis() || valveMillis[i] + 30000L <= millis())) {
+      valveMoves[i] = 0;
+      showValveStatus(i, valveStatuses[i]);
+      setValvePins();
+    }
+  }
+}
+
+void setValvePins() {
+  for (int i=0; i < valveCount; i++) {
+    if (valveMoves[i] != 0) {
+      if (valveStatuses[i] == 0) {
+        digitalWrite(valvePins[i * 2], HIGH);
+      }
+      else {
+        digitalWrite(valvePins[i * 2], LOW);
+      }
+      digitalWrite(valvePins[i * 2 + 1], LOW);
+    }
+    else {
+      digitalWrite(valvePins[i * 2], HIGH);
+      digitalWrite(valvePins[i * 2 + 1], HIGH);
+    }
+  }
+}
+
 void showValveStatus(int valveNumber, int valveStatus) {
   lcd.clear();
   lcd.print("КРАН ");
-  lcd.print(valveNumber);
+  lcd.print(valveNumber + 1);
   lcd.print(valveStatus == 0 ? " ЗАКРЫТ" : " ОТКРЫТ");
-}
-
-void setValveStatus(int valveNumber, int valveStatus) {
-  for (int i=0; i < valveCount; i++) {
-    digitalWrite(valvePins[i * 2], HIGH);
-    digitalWrite(valvePins[i * 2 + 1], HIGH);
-  }
-  if (valveStatus == 1) {
-    digitalWrite(valvePins[valveNumber * 2 - 2], LOW);
-  }
-  digitalWrite(valvePins[valveNumber * 2 - 1], LOW);
-  delay(30000);
-  digitalWrite(valvePins[valveNumber * 2 - 2], HIGH);
-  digitalWrite(valvePins[valveNumber * 2 - 1], HIGH);
 }
