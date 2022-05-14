@@ -1,5 +1,5 @@
 // Watering controller on Arduino Duemilanove
-// v.0.2
+// v.0.21
 // Timur Konic <timur.konic@gmail.com>
 
 #include <SPI.h>
@@ -24,7 +24,7 @@ LiquidCrystalRus lcd(22, 23, 24, 25, 26, 27);
 
 // Valve count
 int valveCount = 4;
-int valvePins[] = {34, 36, 38, 40, 42, 44, 46, 48};
+int valvePins[] = {46, 48, 42, 44, 38, 40, 34, 36};
 
 void setup() {
   setupPins();
@@ -141,7 +141,7 @@ boolean runUri(String uri) {
     char cValveStatus = uri.charAt(6);
     int valveNumber = cValveNumber - '0';
     int valveStatus = cValveStatus - '0';
-    if (valveNumber >= 0 && valveNumber < valveCount && valveStatus >= 0 && valveStatus <= 1) {
+    if (valveNumber >= 1 && valveNumber <= valveCount && valveStatus >= 0 && valveStatus <= 1) {
       showValveStatus(valveNumber, valveStatus);
       setValveStatus(valveNumber, valveStatus);
       return true;
@@ -152,7 +152,7 @@ boolean runUri(String uri) {
 
 void showValveStatus(int valveNumber, int valveStatus) {
   lcd.clear();
-  lcd.print("НАСОС ");
+  lcd.print("КРАН ");
   lcd.print(valveNumber);
   lcd.print(valveStatus == 0 ? " ЗАКРЫТ" : " ОТКРЫТ");
 }
@@ -162,11 +162,11 @@ void setValveStatus(int valveNumber, int valveStatus) {
     digitalWrite(valvePins[i * 2], HIGH);
     digitalWrite(valvePins[i * 2 + 1], HIGH);
   }
-  if (valveStatus == 0) {
-    digitalWrite(valvePins[valveNumber * 2], LOW);
+  if (valveStatus == 1) {
+    digitalWrite(valvePins[valveNumber * 2 - 2], LOW);
   }
-  digitalWrite(valvePins[valveNumber * 2 + 1], LOW);
-  delay(3000);
-  digitalWrite(valvePins[valveNumber * 2], HIGH);
-  digitalWrite(valvePins[valveNumber * 2 + 1], HIGH);
+  digitalWrite(valvePins[valveNumber * 2 - 1], LOW);
+  delay(30000);
+  digitalWrite(valvePins[valveNumber * 2 - 2], HIGH);
+  digitalWrite(valvePins[valveNumber * 2 - 1], HIGH);
 }
